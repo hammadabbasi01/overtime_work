@@ -1,0 +1,105 @@
+{
+ "actions": [],
+ "allow_rename": 1,
+ "creation": "2025-08-20 21:34:15.187463",
+ "doctype": "DocType",
+ "editable_grid": 1,
+ "engine": "InnoDB",
+ "field_order": [
+  "employee",
+  "employee_total_daily_hours",
+  "employee_total_working_hours",
+  "attendance_days",
+  "hourly_rate",
+  "overtime_multiplier",
+  "column_break_irlw",
+  "employee_name",
+  "employee_overtime_hours",
+  "basic_salary",
+  "additional_salary",
+  "overtime_pay"
+ ],
+ "fields": [
+  {
+   "fieldname": "employee",
+   "fieldtype": "Link",
+   "in_list_view": 1,
+   "label": "Employee",
+   "options": "Employee"
+  },
+  {
+   "fieldname": "employee_total_daily_hours",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Employee Total Daily Hours"
+  },
+  {
+   "fieldname": "employee_total_working_hours",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Employee Total Working Hours"
+  },
+  {
+   "fieldname": "attendance_days",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Attendance Days"
+  },
+  {
+   "fieldname": "hourly_rate",
+   "fieldtype": "Currency",
+   "label": "Hourly Rate"
+  },
+  {
+   "fieldname": "overtime_multiplier",
+   "fieldtype": "Float",
+   "label": "Overtime Multiplier"
+  },
+  {
+   "fieldname": "column_break_irlw",
+   "fieldtype": "Column Break"
+  },
+  {
+   "fetch_from": "employee.employee_name",
+   "fieldname": "employee_name",
+   "fieldtype": "Data",
+   "in_list_view": 1,
+   "label": "Employee Name"
+  },
+  {
+   "fieldname": "employee_overtime_hours",
+   "fieldtype": "Float",
+   "in_list_view": 1,
+   "label": "Employee Overtime Hours"
+  },
+  {
+   "fieldname": "basic_salary",
+   "fieldtype": "Currency",
+   "label": "Basic Salary",
+   "read_only": 1
+  },
+  {
+   "fieldname": "additional_salary",
+   "fieldtype": "Link",
+   "label": "Additional Salary",
+   "options": "Additional Salary"
+  },
+  {
+   "fieldname": "overtime_pay",
+   "fieldtype": "Currency",
+   "label": "Overtime Pay"
+  }
+ ],
+ "index_web_pages_for_search": 1,
+ "istable": 1,
+ "links": [],
+ "modified": "2025-08-24 19:43:03.811314",
+ "modified_by": "Administrator",
+ "module": "Overtime Work",
+ "name": "Overtime Calculation Table",
+ "owner": "Administrator",
+ "permissions": [],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "states": []
+}
