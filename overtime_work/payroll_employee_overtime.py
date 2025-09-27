@@ -294,3 +294,122 @@ def create_timesheet_from_payroll(payroll_entry_name):
         f"with total overtime billing amount {total_overtime_billing_amount}."
     )
     return ts.name
+
+
+
+############################################### Timesheet Currency Rate Method ####################################################
+
+
+import json
+
+import frappe
+from frappe import _
+from frappe.model.document import Document
+from frappe.utils import add_to_date, flt, get_datetime, getdate, time_diff_in_hours
+
+from erpnext.controllers.queries import get_match_cond
+from erpnext.setup.utils import get_exchange_rate
+
+@frappe.whitelist()
+def get_timesheet_detail_rate(timelog=None, currency=None):
+    if not timelog:
+        frappe.throw("Timelog is required")
+    
+    timelog_detail = frappe.db.sql(
+        """
+        SELECT tsd.billing_amount as billing_amount,
+               ts.currency as currency
+        FROM `tabTimesheet Detail` tsd
+        INNER JOIN `tabTimesheet` ts ON ts.name=tsd.parent
+        WHERE tsd.name = %s
+        """,
+        (timelog,),
+        as_dict=1,
+    )[0]
+
+    if currency and timelog_detail.currency:
+        exchange_rate = get_exchange_rate(timelog_detail.currency, currency)
+        return timelog_detail.billing_amount * exchange_rate
+    
+    return timelog_detail.billing_amount
+
+
+############################################# Make Sales from Timesheet ##################################################################
+
+import frappe
+from frappe.utils import flt, nowdate
+from frappe import _
+
+@frappe.whitelist()
+def make_sales_invoice(source_name, item_code=None, customer=None, currency=None):
+    target = frappe.new_doc("Sales Invoice")
+    timesheet = frappe.get_doc("Timesheet", source_name)
+
+    if not timesheet.total_billable_hours:
+        frappe.throw(_("Invoice can't be made for zero billing hour"))
+
+    if timesheet.total_billable_hours == timesheet.total_billed_hours:
+        frappe.throw(_("Invoice already created for all billing hours"))
+
+    target.company = timesheet.company
+    target.project = timesheet.parent_project
+    target.posting_date = nowdate()
+
+    # set customer
+    if customer:
+        target.customer = customer
+    elif timesheet.customer:
+        target.customer = timesheet.customer
+
+    # set currency
+    if currency:
+        target.currency = currency
+    elif timesheet.currency:
+        target.currency = timesheet.currency
+
+    # Loop through time_logs
+    for time_log in timesheet.time_logs:
+        if not time_log.is_billable:
+            continue
+
+        # --- get rate dynamically from your method ---
+        rate = frappe.get_value(
+            "Timesheet Detail",
+            time_log.name,
+            "billing_rate"
+        ) or time_log.billing_rate or 0
+
+        # Add to Sales Invoice → Items
+        if item_code:
+            target.append("items", {
+                "item_code": item_code,
+                "qty": time_log.billing_hours or 0,
+                "rate": rate,
+                "description": time_log.activity_type or "",
+                "time_sheet": timesheet.name,
+                "timesheet_detail": time_log.name
+            })
+
+        # Add to Sales Invoice → Timesheets
+        target.append("timesheets", {
+            "time_sheet": timesheet.name,
+            "project_name": time_log.project_name,
+            "from_time": time_log.from_time,
+            "to_time": time_log.to_time,
+            "custom_from_date": time_log.custom_from_date,
+            "custom_to_date": time_log.custom_to_date,
+            "custom_employee": time_log.custom_employee,
+            "custom_employee_name": time_log.custom_employee_name,
+            "billing_hours": time_log.billing_hours,
+            "billing_amount": time_log.billing_amount,
+            "timesheet_detail": time_log.name,
+            "activity_type": time_log.activity_type,
+            "description": time_log.description,
+            "custom_is_monthly_payroll": timesheet.custom_is_monthly_payroll_entry  # ✅ pass parent value
+        })
+
+    # run standard methods
+    target.run_method("calculate_billing_amount_for_timesheet")
+    target.run_method("set_missing_values")
+
+    return target

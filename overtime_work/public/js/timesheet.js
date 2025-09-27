@@ -100,10 +100,20 @@ frappe.ui.form.on("Timesheet", {
 
 // ____________________________________________ Sales Invoice Button ____________________________________________________________
 
+frappe.ui.form.on('Timesheet', {
+    refresh: function(frm) {
+        if(frm.doc.custom_is_monthly_payroll_entry){
+            // Safely remove only the "Submit Salary Slip" button
+            frm.remove_custom_button(__('Create Sales Invoice'));
+        }
+        
+    }
+});
+
 
 frappe.ui.form.on("Timesheet", {
     refresh: function(frm) {
-        if (frm.doc.custom_is_monthly_payroll_entry) {
+        if (frm.doc.custom_is_monthly_payroll_entry && frm.doc.docstatus === 1) {
             frm.add_custom_button(__('Create Invoice'), function() {
                 
                 let fields = [
@@ -133,25 +143,22 @@ frappe.ui.form.on("Timesheet", {
                     primary_action(values) {
                         let customer = frm.doc.customer || values.customer;
                         let item = values.item;
+                        let currency = frm.doc.currency;   // ✅ use Timesheet currency field
 
-                        frappe.model.with_doctype("Sales Invoice", function() {
-                            let si = frappe.model.get_new_doc("Sales Invoice");
-                            si.customer = customer;
-
-                            // For each timesheet row, create one item row
-                            (frm.doc.time_logs || []).forEach(row => {
-                                let item_row = frappe.model.add_child(si, "items");
-                                item_row.item_code = item;
-                                item_row.qty = row.billing_hours || 0;
-                                item_row.rate = row.billing_rate || 0;
-                                item_row.description = row.activity_type || "";
-                            });
-
-                            // Link timesheet info
-                            let ts_row = frappe.model.add_child(si, "timesheets");
-                            ts_row.time_sheet = frm.doc.name;
-
-                            frappe.set_route("Form", "Sales Invoice", si.name);
+                        frappe.call({
+                            method: "overtime_work.payroll_employee_overtime.make_sales_invoice",
+                            args: {
+                                source_name: frm.doc.name,
+                                item_code: item,
+                                customer: customer,
+                                currency: currency
+                            },
+                            callback: function(r) {
+                                if (r.message) {
+                                    let doc = frappe.model.sync(r.message);
+                                    frappe.set_route("Form", doc[0].doctype, doc[0].name);
+                                }
+                            }
                         });
 
                         d.hide();
