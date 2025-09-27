@@ -66,6 +66,9 @@ frappe.ui.form.on("Timesheet", {
     on_submit: function(frm) {
         // Only run if custom_is_monthly_payroll_entry is not selected
         if (!frm.doc.custom_is_monthly_payroll_entry) {
+            // Get yesterday's date
+            let yesterday = frappe.datetime.add_days(frappe.datetime.get_today(), -1);
+
             frappe.call({
                 method: "frappe.client.insert",
                 args: {
@@ -80,7 +83,7 @@ frappe.ui.form.on("Timesheet", {
                         currency: frm.doc.currency,
                         custom_timesheet: frm.doc.name,
                         amount: frm.doc.custom_total_overtime_billing_amount,
-                        payroll_date: frappe.datetime.get_today(),
+                        payroll_date: yesterday,  // 👈 set yesterday instead of today
                         overwrite_salary_structure_amount: 1
                     }
                 },
@@ -89,6 +92,73 @@ frappe.ui.form.on("Timesheet", {
                         frappe.msgprint(__("Additional Salary created: " + r.message.name));
                     }
                 }
+            });
+        }
+    }
+});
+
+
+// ____________________________________________ Sales Invoice Button ____________________________________________________________
+
+
+frappe.ui.form.on("Timesheet", {
+    refresh: function(frm) {
+        if (frm.doc.custom_is_monthly_payroll_entry) {
+            frm.add_custom_button(__('Create Invoice'), function() {
+                
+                let fields = [
+                    {
+                        fieldname: "item",
+                        label: "Item",
+                        fieldtype: "Link",
+                        options: "Item",
+                        reqd: 1
+                    }
+                ];
+
+                if (!frm.doc.customer) {
+                    fields.push({
+                        fieldname: "customer",
+                        label: "Customer",
+                        fieldtype: "Link",
+                        options: "Customer",
+                        reqd: 1
+                    });
+                }
+
+                let d = new frappe.ui.Dialog({
+                    title: "Create Sales Invoice",
+                    fields: fields,
+                    primary_action_label: "Create",
+                    primary_action(values) {
+                        let customer = frm.doc.customer || values.customer;
+                        let item = values.item;
+
+                        frappe.model.with_doctype("Sales Invoice", function() {
+                            let si = frappe.model.get_new_doc("Sales Invoice");
+                            si.customer = customer;
+
+                            // For each timesheet row, create one item row
+                            (frm.doc.time_logs || []).forEach(row => {
+                                let item_row = frappe.model.add_child(si, "items");
+                                item_row.item_code = item;
+                                item_row.qty = row.billing_hours || 0;
+                                item_row.rate = row.billing_rate || 0;
+                                item_row.description = row.activity_type || "";
+                            });
+
+                            // Link timesheet info
+                            let ts_row = frappe.model.add_child(si, "timesheets");
+                            ts_row.time_sheet = frm.doc.name;
+
+                            frappe.set_route("Form", "Sales Invoice", si.name);
+                        });
+
+                        d.hide();
+                    }
+                });
+
+                d.show();
             });
         }
     }

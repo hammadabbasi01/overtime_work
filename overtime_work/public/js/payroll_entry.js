@@ -3,27 +3,66 @@
 frappe.ui.form.on("Payroll Entry", {
     onload: function(frm) {
         if (frm.is_new() && frm.doc.company) {
-            frappe.call({
-                method: "overtime_work.payroll_employee_overtime.get_monthly_salary_employees",
-                args: {
-                    company: frm.doc.company
-                },
-                callback: function(r) {
-                    if (r.message) {
-                        frm.clear_table("custom_overtime_calculation_table");
+            if (frm.doc.salary_slip_based_on_timesheet) {
+                // If salary slip is based on timesheet → clear table
+                frm.clear_table("custom_overtime_calculation_table");
+                frm.refresh_field("custom_overtime_calculation_table");
+            } else {
+                // Otherwise fetch employees
+                frappe.call({
+                    method: "overtime_work.payroll_employee_overtime.get_monthly_salary_employees",
+                    args: {
+                        company: frm.doc.company
+                    },
+                    callback: function(r) {
+                        if (r.message) {
+                            frm.clear_table("custom_overtime_calculation_table");
 
-                        r.message.forEach(emp => {
-                            let row = frm.add_child("custom_overtime_calculation_table");
-                            row.employee = emp.name;
-                            row.employee_name = emp.employee_name;
-                            row.shift_hours = emp.shift_hours || 0; // store shift hours
-                            row.basic_salary = emp.basic_salary || 0;
-                        });
+                            r.message.forEach(emp => {
+                                let row = frm.add_child("custom_overtime_calculation_table");
+                                row.employee = emp.name;
+                                row.employee_name = emp.employee_name;
+                                row.shift_hours = emp.shift_hours || 0;
+                                row.basic_salary = emp.basic_salary || 0;
+                            });
 
-                        frm.refresh_field("custom_overtime_calculation_table");
+                            frm.refresh_field("custom_overtime_calculation_table");
+                        }
                     }
-                }
-            });
+                });
+            }
+        }
+    },
+
+    salary_slip_based_on_timesheet: function(frm) {
+        if (frm.doc.salary_slip_based_on_timesheet) {
+            frm.clear_table("custom_overtime_calculation_table");
+            frm.refresh_field("custom_overtime_calculation_table");
+        } else {
+            // Re-fetch employees if unchecked
+            if (frm.doc.company) {
+                frappe.call({
+                    method: "overtime_work.payroll_employee_overtime.get_monthly_salary_employees",
+                    args: {
+                        company: frm.doc.company
+                    },
+                    callback: function(r) {
+                        if (r.message) {
+                            frm.clear_table("custom_overtime_calculation_table");
+
+                            r.message.forEach(emp => {
+                                let row = frm.add_child("custom_overtime_calculation_table");
+                                row.employee = emp.name;
+                                row.employee_name = emp.employee_name;
+                                row.shift_hours = emp.shift_hours || 0;
+                                row.basic_salary = emp.basic_salary || 0;
+                            });
+
+                            frm.refresh_field("custom_overtime_calculation_table");
+                        }
+                    }
+                });
+            }
         }
     },
 
@@ -39,6 +78,47 @@ frappe.ui.form.on("Payroll Entry", {
         }
     }
 });
+
+
+// frappe.ui.form.on("Payroll Entry", {
+//     onload: function(frm) {
+//         if (frm.is_new() && frm.doc.company) {
+//             frappe.call({
+//                 method: "overtime_work.payroll_employee_overtime.get_monthly_salary_employees",
+//                 args: {
+//                     company: frm.doc.company
+//                 },
+//                 callback: function(r) {
+//                     if (r.message) {
+//                         frm.clear_table("custom_overtime_calculation_table");
+
+//                         r.message.forEach(emp => {
+//                             let row = frm.add_child("custom_overtime_calculation_table");
+//                             row.employee = emp.name;
+//                             row.employee_name = emp.employee_name;
+//                             row.shift_hours = emp.shift_hours || 0; // store shift hours
+//                             row.basic_salary = emp.basic_salary || 0;
+//                         });
+
+//                         frm.refresh_field("custom_overtime_calculation_table");
+//                     }
+//                 }
+//             });
+//         }
+//     },
+
+//     start_date: function(frm) {
+//         if (frm.doc.start_date && frm.doc.end_date && frm.doc.company) {
+//             fetch_attendance_days(frm);
+//         }
+//     },
+
+//     end_date: function(frm) {
+//         if (frm.doc.start_date && frm.doc.end_date && frm.doc.company) {
+//             fetch_attendance_days(frm);
+//         }
+//     }
+// });
 
 // Trigger when overtime hours are typed in child table
 frappe.ui.form.on("Overtime Calculation Table", {
